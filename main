@@ -1,0 +1,256 @@
+/*
+    Tic Tac Toe - Console Mini Game (C++)
+    --------------------------------------
+    Demonstrates:
+      - Object-Oriented Design (Game class encapsulating board & logic)
+      - Arrays (2D board representation)
+      - Loops (game loop, board printing, win checking)
+      - Conditional logic (turn switching, win/draw detection)
+      - Simple AI opponent (win / block / random strategy)
+      - Score tracking across replays
+      - Replay functionality
+*/
+
+#include <iostream>
+#include <limits>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
+using namespace std;
+
+const int SIZE = 3;
+
+class TicTacToe {
+private:
+    char board[SIZE][SIZE];
+    char humanMark;
+    char computerMark;
+    bool vsComputer;
+
+    void initBoard() {
+        int num = 1;
+        for (int i = 0; i < SIZE; i++)
+            for (int j = 0; j < SIZE; j++)
+                board[i][j] = '0' + num++;
+    }
+
+    bool getRowCol(int move, int &row, int &col) {
+        if (move < 1 || move > 9) return false;
+        move--;
+        row = move / SIZE;
+        col = move % SIZE;
+        return true;
+    }
+
+    bool isValidMove(int move) {
+        int row, col;
+        if (!getRowCol(move, row, col)) return false;
+        return board[row][col] != 'X' && board[row][col] != 'O';
+    }
+
+    void placeMark(int move, char mark) {
+        int row, col;
+        getRowCol(move, row, col);
+        board[row][col] = mark;
+    }
+
+    void undoMove(int move) {
+        int row, col;
+        getRowCol(move, row, col);
+        board[row][col] = '0' + (row * SIZE + col + 1);
+    }
+
+    bool checkWin(char mark) {
+        for (int i = 0; i < SIZE; i++) {
+            if (board[i][0] == mark && board[i][1] == mark && board[i][2] == mark) return true;
+            if (board[0][i] == mark && board[1][i] == mark && board[2][i] == mark) return true;
+        }
+        if (board[0][0] == mark && board[1][1] == mark && board[2][2] == mark) return true;
+        if (board[0][2] == mark && board[1][1] == mark && board[2][0] == mark) return true;
+        return false;
+    }
+
+    bool isBoardFull() {
+        for (int i = 0; i < SIZE; i++)
+            for (int j = 0; j < SIZE; j++)
+                if (board[i][j] != 'X' && board[i][j] != 'O') return false;
+        return true;
+    }
+
+    vector<int> availableMoves() {
+        vector<int> moves;
+        for (int m = 1; m <= 9; m++)
+            if (isValidMove(m)) moves.push_back(m);
+        return moves;
+    }
+
+    // Simple AI: 1) win if possible, 2) block opponent's win, 3) take center,
+    // 4) take a corner, 5) otherwise take any open cell.
+    int computerChooseMove() {
+        vector<int> moves = availableMoves();
+
+        for (int m : moves) {
+            placeMark(m, computerMark);
+            bool wins = checkWin(computerMark);
+            undoMove(m);
+            if (wins) return m;
+        }
+
+        for (int m : moves) {
+            placeMark(m, humanMark);
+            bool blocks = checkWin(humanMark);
+            undoMove(m);
+            if (blocks) return m;
+        }
+
+        if (isValidMove(5)) return 5;
+
+        for (int corner : {1, 3, 7, 9})
+            if (isValidMove(corner)) return corner;
+
+        return moves.front();
+    }
+
+    // Returns the chosen move, or -1 if input has run out (EOF)
+    int getHumanMove(char player) {
+        int move;
+        while (true) {
+            cout << "Player " << player << ", enter your move (1-9): ";
+            cin >> move;
+
+            if (cin.eof()) {
+                return -1;
+            }
+            if (cin.fail()) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid input. Please enter a number.\n";
+                continue;
+            }
+            if (!isValidMove(move)) {
+                cout << "That move is invalid or the cell is already taken. Try again.\n";
+                continue;
+            }
+            return move;
+        }
+    }
+
+public:
+    TicTacToe(bool vsComp, char humanChoice) {
+        vsComputer = vsComp;
+        humanMark = humanChoice;
+        computerMark = (humanChoice == 'X') ? 'O' : 'X';
+    }
+
+    void printBoard() {
+        cout << "\n";
+        for (int i = 0; i < SIZE; i++) {
+            cout << " ";
+            for (int j = 0; j < SIZE; j++) {
+                cout << board[i][j];
+                if (j < SIZE - 1) cout << " | ";
+            }
+            cout << "\n";
+            if (i < SIZE - 1) cout << "-----------\n";
+        }
+        cout << "\n";
+    }
+
+    // Returns 'X', 'O' for a win, 'D' for a draw
+    char play() {
+        initBoard();
+        char currentPlayer = 'X';
+
+        cout << "\n=== TIC TAC TOE ===\n";
+        cout << "Cell reference:\n";
+        printBoard();
+
+        while (true) {
+            int move;
+            bool computersTurn = vsComputer && currentPlayer == computerMark;
+
+            if (computersTurn) {
+                move = computerChooseMove();
+                cout << "Computer (" << computerMark << ") chooses cell " << move << ".\n";
+            } else {
+                move = getHumanMove(currentPlayer);
+                if (move == -1) {
+                    cout << "\nNo more input received. Ending round early.\n";
+                    return 'D';
+                }
+            }
+
+            placeMark(move, currentPlayer);
+            printBoard();
+
+            if (checkWin(currentPlayer)) {
+                if (computersTurn)
+                    cout << "*** Computer (" << currentPlayer << ") WINS! ***\n";
+                else
+                    cout << "*** Player " << currentPlayer << " WINS! Congratulations! ***\n";
+                return currentPlayer;
+            }
+
+            if (isBoardFull()) {
+                cout << "It's a DRAW! The board is full.\n";
+                return 'D';
+            }
+
+            currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
+        }
+    }
+};
+
+bool askYesNo(const string &prompt) {
+    char choice;
+    while (true) {
+        cout << prompt;
+        cin >> choice;
+        if (cin.eof()) return false; // no more input -> treat as "no"
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+        choice = tolower(choice);
+        if (choice == 'y') return true;
+        if (choice == 'n') return false;
+        cout << "Please enter 'y' or 'n'.\n";
+    }
+}
+
+int main() {
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    cout << "Welcome to Console Tic Tac Toe!\n";
+
+    int scoreX = 0, scoreO = 0, scoreDraw = 0;
+
+    do {
+        bool vsComputer = askYesNo("Play against the computer? (y/n): ");
+        char humanChoice = 'X';
+
+        if (vsComputer) {
+            cout << "Choose your mark - X goes first (X/O): ";
+            char c = 'X';
+            cin >> c;
+            if (!cin.eof()) c = toupper(c);
+            humanChoice = (c == 'O') ? 'O' : 'X';
+        }
+
+        TicTacToe game(vsComputer, humanChoice);
+        char result = game.play();
+
+        if (result == 'X') scoreX++;
+        else if (result == 'O') scoreO++;
+        else scoreDraw++;
+
+        cout << "\n--- Scoreboard ---\n";
+        cout << "X wins: " << scoreX << "   O wins: " << scoreO << "   Draws: " << scoreDraw << "\n";
+
+    } while (askYesNo("\nPlay again? (y/n): "));
+
+    cout << "\nFinal Scoreboard -> X: " << scoreX << " | O: " << scoreO << " | Draws: " << scoreDraw << "\n";
+    cout << "Thanks for playing! Goodbye.\n";
+    return 0;
+}
